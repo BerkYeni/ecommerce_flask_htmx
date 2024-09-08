@@ -331,16 +331,23 @@ def add_to_wishlist(product_id):
 @app.route('/remove_from_wishlist/<int:product_id>', methods=['POST'])
 def remove_from_wishlist(product_id):
     if 'user_id' not in session:
-        return redirect(url_for('login'))
+        return 'Please log in to remove items from your wishlist', 401
     
     conn = get_db_connection()
     conn.execute('DELETE FROM wishlist WHERE user_id = ? AND product_id = ?',
                  (session['user_id'], product_id))
     conn.commit()
+    
+    # Fetch the updated wishlist items
+    wishlist_items = conn.execute('''
+        SELECT p.* FROM products p
+        JOIN wishlist w ON p.id = w.product_id
+        WHERE w.user_id = ?
+    ''', (session['user_id'],)).fetchall()
     conn.close()
     
-    flash('Product removed from your wishlist!', 'success')
-    return redirect(url_for('wishlist'))
+    # Render the updated wishlist content
+    return render_template('wishlist_content.html', wishlist_items=wishlist_items)
 
 @app.route('/order_history')
 def order_history():
