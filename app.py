@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask import flash
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Set a secret key for session management
@@ -181,6 +182,103 @@ def order_confirmation(order_id):
     conn.close()
     
     return render_template('order_confirmation.html', order=order, order_items=order_items)
+
+@app.route('/search')
+def search():
+    query = request.args.get('q', '')
+    conn = get_db_connection()
+    products = conn.execute('SELECT * FROM products WHERE name LIKE ? OR description LIKE ?',
+                            (f'%{query}%', f'%{query}%')).fetchall()
+    conn.close()
+    return render_template('search_results.html', products=products, query=query)
+
+@app.route('/product/<int:product_id>')
+def product_detail(product_id):
+    conn = get_db_connection()
+    product = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
+    reviews = conn.execute('SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC', (product_id,)).fetchall()
+    conn.close()
+    return render_template('product_detail.html', product=product, reviews=reviews)
+
+@app.route('/add_review/<int:product_id>', methods=['POST'])
+def add_review(product_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    rating = int(request.form['rating'])
+    comment = request.form['comment']
+    user_id = session['user_id']
+    
+    conn = get_db_connection()
+    conn.execute('INSERT INTO reviews (user_id, product_id, rating, comment) VALUES (?, ?, ?, ?)',
+                 (user_id, product_id, rating, comment))
+    conn.commit()
+    conn.close()
+    
+    flash('Your review has been added successfully!', 'success')
+    return redirect(url_for('product_detail', product_id=product_id))
+
+@app.route('/wishlist')
+def wishlist():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    wishlist_items = conn.execute('''
+        SELECT p.* FROM products p
+        JOIN wishlist w ON p.id = w.product_id
+        WHERE w.user_id = ?
+    ''', (session['user_id'],)).fetchall()
+    conn.close()
+    
+    return render_template('wishlist.html', wishlist_items=wishlist_items)
+
+@app.route('/add_to_wishlist/<int:product_id>', methods=['POST'])
+def add_to_wishlist(product_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    conn.execute('INSERT OR IGNORE INTO wishlist (user_id, product_id) VALUES (?, ?)',
+                 (session['user_id'], product_id))
+    conn.commit()
+    conn.close()
+    
+    flash('Product added to your wishlist!', 'success')
+    return redirect(url_for('product_detail', product_id=product_id))
+
+@app.route('/remove_from_wishlist/<int:product_id>', methods=['POST'])
+def remove_from_wishlist(product_id):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    conn.execute('DELETE FROM wishlist WHERE user_id = ? AND product_id = ?',
+                 (session['user_id'], product_id))
+    conn.commit()
+    conn.close()
+    
+    flash('Product removed from your wishlist!', 'success')
+    return redirect(url_for('wishlist'))
+
+@app.route('/order_history')
+def order_history():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
+    orders = conn.execute('''
+        SELECT o.id, o.created_at, o.status, SUM(p.price * oi.quantity) as total
+        FROM orders o
+        JOIN order_items oi ON o.id = oi.order_id
+        JOIN products p ON oi.product_id = p.id
+        WHERE o.user_id = ?
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+    ''', (session['user_id'],)).fetchall()
+    conn.close()
+    
+    return render_template('order_history.html', orders=orders)
 
 if __name__ == '__main__':
     app.run(debug=True)

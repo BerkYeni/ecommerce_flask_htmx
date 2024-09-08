@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-4">Order History</h1>
+{% if orders %}
+    <div class="space-y-4">
+        {% for order in orders %}
+        <div class="border p-4 rounded">
+            <h2 class="text-xl font-semibold">Order #{{ order['id'] }}</h2>
+            <p>Date: {{ order['created_at'] }}</p>
+            <p>Status: {{ order['status'] }}</p>
+            <p>Total: ${{ "%.2f"|format(order['total']) }}</p>
+            <a href="{{ url_for('order_confirmation', order_id=order['id']) }}" class="text-blue-500 hover:underline">View Details</a>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>You haven't placed any orders yet.</p>
+{% endif %}
+{% endblock %}

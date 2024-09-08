@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-4">Your Wishlist</h1>
+{% if wishlist_items %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for item in wishlist_items %}
+        <div class="border p-4 rounded">
+            <h2 class="text-xl font-semibold">{{ item['name'] }}</h2>
+            <p class="text-gray-600">${{ "%.2f"|format(item['price']) }}</p>
+            <div class="mt-2 space-x-2">
+                <a href="{{ url_for('product_detail', product_id=item['id']) }}" class="text-blue-500 hover:underline">View Details</a>
+                <form hx-post="{{ url_for('remove_from_wishlist', product_id=item['id']) }}" hx-target="#wishlist-content" class="inline">
+                    <button type="submit" class="text-red-500 hover:underline">Remove</button>
+                </form>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>Your wishlist is empty.</p>
+{% endif %}
+{% endblock %}

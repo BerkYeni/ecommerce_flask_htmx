@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-4">{{ product['name'] }}</h1>
+<div class="flex flex-col md:flex-row gap-8">
+    <div class="md:w-1/2">
+        <p class="text-2xl font-semibold mb-2">${{ "%.2f"|format(product['price']) }}</p>
+        <p class="mb-4">{{ product['description'] }}</p>
+        <form hx-post="{{ url_for('add_to_cart', product_id=product['id']) }}" hx-target="#cart-count" class="mb-4">
+            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded">Add to Cart</button>
+        </form>
+        <form hx-post="{{ url_for('add_to_wishlist', product_id=product['id']) }}" hx-target="#wishlist-message">
+            <button type="submit" class="bg-gray-300 text-gray-800 px-4 py-2 rounded">Add to Wishlist</button>
+        </form>
+        <div id="wishlist-message"></div>
+    </div>
+    <div class="md:w-1/2">
+        <h2 class="text-2xl font-semibold mb-4">Reviews</h2>
+        {% if reviews %}
+            <div class="space-y-4">
+                {% for review in reviews %}
+                <div class="border-b pb-2">
+                    <p class="font-semibold">Rating: {{ review['rating'] }}/5</p>
+                    <p>{{ review['comment'] }}</p>
+                    <p class="text-sm text-gray-500">{{ review['created_at'] }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>No reviews yet. Be the first to review this product!</p>
+        {% endif %}
+        {% if session.get('user_id') %}
+        <h3 class="text-xl font-semibold mt-4 mb-2">Add a Review</h3>
+        <form hx-post="{{ url_for('add_review', product_id=product['id']) }}" hx-target="#review-form" class="space-y-2">
+            <div>
+                <label for="rating" class="block">Rating:</label>
+                <select name="rating" id="rating" required class="w-full border rounded px-2 py-1">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+            <div>
+                <label for="comment" class="block">Comment:</label>
+                <textarea name="comment" id="comment" required class="w-full border rounded px-2 py-1"></textarea>
+            </div>
+            <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded">Submit Review</button>
+        </form>
+        <div id="review-form"></div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

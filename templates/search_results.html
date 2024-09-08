@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-4">Search Results for "{{ query }}"</h1>
+{% if products %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for product in products %}
+        <div class="border p-4 rounded">
+            <h2 class="text-xl font-semibold">{{ product['name'] }}</h2>
+            <p class="text-gray-600">${{ "%.2f"|format(product['price']) }}</p>
+            <a href="{{ url_for('product_detail', product_id=product['id']) }}" class="text-blue-500 hover:underline">View Details</a>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No products found matching your search.</p>
+{% endif %}
+{% endblock %}
