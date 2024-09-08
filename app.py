@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify, session, redirect, u
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import flash
+from math import ceil
+from collections import Counter
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Set a secret key for session management
@@ -11,22 +13,71 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_product_recommendations(user_id, limit=4):
+    conn = get_db_connection()
+    # Get products from user's order history
+    ordered_products = conn.execute('''
+        SELECT DISTINCT oi.product_id
+        FROM order_items oi
+        JOIN orders o ON oi.order_id = o.id
+        WHERE o.user_id = ?
+    ''', (user_id,)).fetchall()
+    
+    ordered_product_ids = [p['product_id'] for p in ordered_products]
+    
+    if not ordered_product_ids:
+        # If user has no order history, return top-selling products
+        recommendations = conn.execute('''
+            SELECT p.*, COUNT(oi.id) as order_count
+            FROM products p
+            LEFT JOIN order_items oi ON p.id = oi.product_id
+            GROUP BY p.id
+            ORDER BY order_count DESC
+            LIMIT ?
+        ''', (limit,)).fetchall()
+    else:
+        # Get products that are often bought together with the user's purchased products
+        related_products = conn.execute('''
+            SELECT oi2.product_id, COUNT(*) as frequency
+            FROM order_items oi1
+            JOIN order_items oi2 ON oi1.order_id = oi2.order_id
+            WHERE oi1.product_id IN ({})
+            AND oi2.product_id NOT IN ({})
+            GROUP BY oi2.product_id
+            ORDER BY frequency DESC
+            LIMIT ?
+        '''.format(','.join('?' * len(ordered_product_ids)), ','.join('?' * len(ordered_product_ids))),
+        (*ordered_product_ids, *ordered_product_ids, limit)).fetchall()
+        
+        recommendation_ids = [p['product_id'] for p in related_products]
+        recommendations = conn.execute('SELECT * FROM products WHERE id IN ({})'.format(','.join('?' * len(recommendation_ids))),
+                                       recommendation_ids).fetchall()
+    
+    conn.close()
+    return recommendations
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    recommendations = []
+    if 'user_id' in session:
+        recommendations = get_product_recommendations(session['user_id'])
+    return render_template('index.html', recommendations=recommendations)
 
 @app.route('/products')
 def products():
     page = request.args.get('page', 1, type=int)
-    per_page = 10
-    offset = (page - 1) * per_page
+    per_page = 12  # Increased from 10 to 12 for better grid layout
     
     conn = get_db_connection()
+    total_products = conn.execute('SELECT COUNT(*) FROM products').fetchone()[0]
+    total_pages = ceil(total_products / per_page)
+    
+    offset = (page - 1) * per_page
     products = conn.execute('SELECT * FROM products LIMIT ? OFFSET ?', 
                             (per_page, offset)).fetchall()
     conn.close()
     
-    return render_template('products.html', products=products, page=page)
+    return render_template('products.html', products=products, page=page, total_pages=total_pages)
 
 @app.route('/add-to-cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):

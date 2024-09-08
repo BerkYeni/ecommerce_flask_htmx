@@ -2,25 +2,38 @@
 
 {% block content %}
 <h1 class="text-3xl font-bold mb-4">Our Products</h1>
-<div id="product-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+<div id="product-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
     {% for product in products %}
     <div class="border p-4 rounded">
         <h2 class="text-xl font-semibold">{{ product['name'] }}</h2>
         <p class="text-gray-600">${{ "%.2f"|format(product['price']) }}</p>
-        <button hx-post="/add-to-cart/{{ product['id'] }}"
+        <a href="{{ url_for('product_detail', product_id=product['id']) }}" class="text-blue-500 hover:underline">View Details</a>
+        <button hx-post="{{ url_for('add_to_cart', product_id=product['id']) }}"
                 hx-target="#cart-count"
-                class="bg-blue-500 text-white px-4 py-2 rounded mt-2">
+                class="bg-blue-500 text-white px-4 py-2 rounded mt-2 w-full">
             Add to Cart
         </button>
     </div>
     {% endfor %}
 </div>
-<div class="mt-4">
-    <button hx-get="/products?page={{ page + 1 }}"
-            hx-target="#product-list"
-            hx-swap="beforeend"
-            class="bg-gray-300 px-4 py-2 rounded">
-        Load More
-    </button>
+
+<div class="mt-8 flex justify-center">
+    <nav class="inline-flex rounded-md shadow">
+        {% if page > 1 %}
+        <a href="{{ url_for('products', page=page-1) }}" class="px-3 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+            Previous
+        </a>
+        {% endif %}
+        {% for p in range(1, total_pages + 1) %}
+        <a href="{{ url_for('products', page=p) }}" class="px-3 py-2 border border-gray-300 bg-white text-sm font-medium {% if p == page %}text-blue-600 bg-blue-50{% else %}text-gray-500 hover:bg-gray-50{% endif %}">
+            {{ p }}
+        </a>
+        {% endfor %}
+        {% if page < total_pages %}
+        <a href="{{ url_for('products', page=page+1) }}" class="px-3 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+            Next
+        </a>
+        {% endif %}
+    </nav>
 </div>
 {% endblock %}
