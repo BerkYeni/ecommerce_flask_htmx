@@ -12,7 +12,8 @@ CREATE TABLE products (
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL
+    password TEXT NOT NULL,
+    is_admin BOOLEAN DEFAULT 0
 );
 
 CREATE TABLE cart (

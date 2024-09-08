@@ -4,9 +4,20 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import flash
 from math import ceil
 from collections import Counter
+from functools import wraps
+from flask_mail import Mail, Message
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Set a secret key for session management
+
+app.config['MAIL_SERVER'] = 'smtp.example.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = 'your-email@example.com'
+app.config['MAIL_PASSWORD'] = 'your-email-password'
+app.config['MAIL_DEFAULT_SENDER'] = 'your-email@example.com'
+
+mail = Mail(app)
 
 def get_db_connection():
     conn = sqlite3.connect('database.db')
@@ -207,15 +218,27 @@ def checkout():
             cur.execute('INSERT INTO order_items (order_id, product_id, quantity) VALUES (?, ?, ?)',
                         (order_id, product_id, quantity))
         
+        # Get user email
+        user = conn.execute('SELECT email FROM users WHERE id = ?', (user_id,)).fetchone()
+        
         conn.commit()
         conn.close()
+        
+        # Send order confirmation email
+        send_order_confirmation_email(order_id, user['email'])
         
         # Clear the cart
         session.pop('cart', None)
         
+        flash('Your order has been placed successfully!', 'success')
         return redirect(url_for('order_confirmation', order_id=order_id))
     
     return render_template('checkout.html')
+
+def send_order_confirmation_email(order_id, user_email):
+    msg = Message('Order Confirmation', recipients=[user_email])
+    msg.body = f'Thank you for your order! Your order number is: {order_id}'
+    mail.send(msg)
 
 @app.route('/order-confirmation/<int:order_id>')
 def order_confirmation(order_id):
@@ -330,6 +353,92 @@ def order_history():
     conn.close()
     
     return render_template('order_history.html', orders=orders)
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        
+        conn = get_db_connection()
+        user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+        conn.close()
+        
+        if not user or not user['is_admin']:
+            flash('You do not have permission to access this page.', 'error')
+            return redirect(url_for('index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    conn = get_db_connection()
+    products = conn.execute('SELECT * FROM products').fetchall()
+    users = conn.execute('SELECT * FROM users').fetchall()
+    orders = conn.execute('SELECT * FROM orders').fetchall()
+    conn.close()
+    return render_template('admin/dashboard.html', products=products, users=users, orders=orders)
+
+@app.route('/admin/products')
+@admin_required
+def admin_products():
+    conn = get_db_connection()
+    products = conn.execute('SELECT * FROM products').fetchall()
+    conn.close()
+    return render_template('admin/products.html', products=products)
+
+@app.route('/admin/products/add', methods=['GET', 'POST'])
+@admin_required
+def admin_add_product():
+    if request.method == 'POST':
+        name = request.form['name']
+        price = float(request.form['price'])
+        description = request.form['description']
+        
+        conn = get_db_connection()
+        conn.execute('INSERT INTO products (name, price, description) VALUES (?, ?, ?)',
+                     (name, price, description))
+        conn.commit()
+        conn.close()
+        
+        flash('Product added successfully!', 'success')
+        return redirect(url_for('admin_products'))
+    
+    return render_template('admin/add_product.html')
+
+@app.route('/admin/products/edit/<int:product_id>', methods=['GET', 'POST'])
+@admin_required
+def admin_edit_product(product_id):
+    conn = get_db_connection()
+    product = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
+    
+    if request.method == 'POST':
+        name = request.form['name']
+        price = float(request.form['price'])
+        description = request.form['description']
+        
+        conn.execute('UPDATE products SET name = ?, price = ?, description = ? WHERE id = ?',
+                     (name, price, description, product_id))
+        conn.commit()
+        conn.close()
+        
+        flash('Product updated successfully!', 'success')
+        return redirect(url_for('admin_products'))
+    
+    conn.close()
+    return render_template('admin/edit_product.html', product=product)
+
+@app.route('/admin/products/delete/<int:product_id>', methods=['POST'])
+@admin_required
+def admin_delete_product(product_id):
+    conn = get_db_connection()
+    conn.execute('DELETE FROM products WHERE id = ?', (product_id,))
+    conn.commit()
+    conn.close()
+    
+    flash('Product deleted successfully!', 'success')
+    return redirect(url_for('admin_products'))
 
 if __name__ == '__main__':
     app.run(debug=True)

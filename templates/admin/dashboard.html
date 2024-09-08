@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-3xl font-bold mb-4">Admin Dashboard</h1>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="border p-4 rounded">
+        <h2 class="text-xl font-semibold mb-2">Products</h2>
+        <p>Total: {{ products|length }}</p>
+        <a href="{{ url_for('admin_products') }}" class="text-blue-500 hover:underline">Manage Products</a>
+    </div>
+    <div class="border p-4 rounded">
+        <h2 class="text-xl font-semibold mb-2">Users</h2>
+        <p>Total: {{ users|length }}</p>
+    </div>
+    <div class="border p-4 rounded">
+        <h2 class="text-xl font-semibold mb-2">Orders</h2>
+        <p>Total: {{ orders|length }}</p>
+    </div>
+</div>
+{% endblock %}
