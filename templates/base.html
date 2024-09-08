@@ -14,7 +14,7 @@
                 <ul class="flex space-x-4">
                     <li><a href="/" class="hover:underline">Home</a></li>
                     <li><a href="/products" class="hover:underline">Products</a></li>
-                    <li><a href="/cart" class="hover:underline">Cart (<span id="cart-count">0</span>)</a></li>
+                    <li><a href="/cart" class="hover:underline">Cart (<span id="cart-count">{{ cart_count|default(0) }}</span>)</a></li>
                     {% if session.get('user_id') %}
                         <li><a href="/wishlist" class="hover:underline">Wishlist</a></li>
                         <li><a href="/order_history" class="hover:underline">Order History</a></li>

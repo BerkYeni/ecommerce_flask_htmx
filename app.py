@@ -67,12 +67,16 @@ def get_product_recommendations(user_id, limit=4):
     conn.close()
     return recommendations
 
+def get_cart_count():
+    cart = session.get('cart', {})
+    return sum(cart.values())
+
 @app.route('/')
 def index():
     recommendations = []
     if 'user_id' in session:
         recommendations = get_product_recommendations(session['user_id'])
-    return render_template('index.html', recommendations=recommendations)
+    return render_template('index.html', recommendations=recommendations, cart_count=get_cart_count())
 
 @app.route('/products')
 def products():
@@ -88,7 +92,7 @@ def products():
                             (per_page, offset)).fetchall()
     conn.close()
     
-    return render_template('products.html', products=products, page=page, total_pages=total_pages)
+    return render_template('products.html', products=products, page=page, total_pages=total_pages, cart_count=get_cart_count())
 
 @app.route('/add-to-cart/<int:product_id>', methods=['POST'])
 def add_to_cart(product_id):
@@ -99,16 +103,19 @@ def add_to_cart(product_id):
     cart[str(product_id)] = cart.get(str(product_id), 0) + 1
     session.modified = True
     
-    return str(sum(cart.values())), 200
+    return str(get_cart_count()), 200
 
 @app.route('/cart')
 def view_cart():
     cart = session.get('cart', {})
     
-    if not cart:
-        return render_template('cart.html', cart_items=[])
-    
     conn = get_db_connection()
+    cart_items, total = calculate_cart_items_and_total(cart, conn)
+    conn.close()
+    
+    return render_template('cart.html', cart_items=cart_items, total=total, cart_count=get_cart_count())
+
+def calculate_cart_items_and_total(cart, conn):
     cart_items = []
     total = 0
     
@@ -125,8 +132,7 @@ def view_cart():
             })
             total += item_total
     
-    conn.close()
-    return render_template('cart.html', cart_items=cart_items, total=total)
+    return cart_items, total
 
 @app.route('/update-cart/<int:product_id>', methods=['POST'])
 def update_cart(product_id):
@@ -141,7 +147,12 @@ def update_cart(product_id):
     session['cart'] = cart
     session.modified = True
     
-    return redirect(url_for('view_cart'))
+    # Recalculate cart items and total
+    conn = get_db_connection()
+    cart_items, total = calculate_cart_items_and_total(cart, conn)
+    conn.close()
+    
+    return render_template('cart_content.html', cart_items=cart_items, total=total, cart_count=get_cart_count())
 
 @app.route('/remove-from-cart/<int:product_id>', methods=['POST'])
 def remove_from_cart(product_id):
@@ -152,25 +163,10 @@ def remove_from_cart(product_id):
     
     # Recalculate cart items and total
     conn = get_db_connection()
-    cart_items = []
-    total = 0
-    
-    for product_id, quantity in cart.items():
-        product = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
-        if product:
-            item_total = product['price'] * quantity
-            cart_items.append({
-                'id': product['id'],
-                'name': product['name'],
-                'price': product['price'],
-                'quantity': quantity,
-                'total': item_total
-            })
-            total += item_total
-    
+    cart_items, total = calculate_cart_items_and_total(cart, conn)
     conn.close()
     
-    return render_template('cart_content.html', cart_items=cart_items, total=total)
+    return render_template('cart_content.html', cart_items=cart_items, total=total, cart_count=get_cart_count())
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -289,7 +285,7 @@ def search():
     products = conn.execute('SELECT * FROM products WHERE name LIKE ? OR description LIKE ?',
                             (f'%{query}%', f'%{query}%')).fetchall()
     conn.close()
-    return render_template('search_results.html', products=products, query=query)
+    return render_template('search_results.html', products=products, query=query, cart_count=get_cart_count())
 
 @app.route('/product/<int:product_id>')
 def product_detail(product_id):
@@ -297,7 +293,7 @@ def product_detail(product_id):
     product = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
     reviews = conn.execute('SELECT * FROM reviews WHERE product_id = ? ORDER BY created_at DESC', (product_id,)).fetchall()
     conn.close()
-    return render_template('product_detail.html', product=product, reviews=reviews)
+    return render_template('product_detail.html', product=product, reviews=reviews, cart_count=get_cart_count())
 
 @app.route('/add_review/<int:product_id>', methods=['POST'])
 def add_review(product_id):
@@ -330,7 +326,7 @@ def wishlist():
     ''', (session['user_id'],)).fetchall()
     conn.close()
     
-    return render_template('wishlist.html', wishlist_items=wishlist_items)
+    return render_template('wishlist.html', wishlist_items=wishlist_items, cart_count=get_cart_count())
 
 @app.route('/add_to_wishlist/<int:product_id>', methods=['POST'])
 def add_to_wishlist(product_id):
@@ -386,7 +382,7 @@ def order_history():
     ''', (session['user_id'],)).fetchall()
     conn.close()
     
-    return render_template('order_history.html', orders=orders)
+    return render_template('order_history.html', orders=orders, cart_count=get_cart_count())
 
 def admin_required(f):
     @wraps(f)
