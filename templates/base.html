@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTMX Ecommerce</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex flex-col min-h-screen">
+    <header class="bg-blue-600 text-white p-4">
+        <nav>
+            <ul class="flex space-x-4">
+                <li><a href="/" class="hover:underline">Home</a></li>
+                <li><a href="/products" class="hover:underline">Products</a></li>
+                <li><a href="/cart" class="hover:underline">Cart</a></li>
+                <li><a href="/login" class="hover:underline">Login</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="flex-grow container mx-auto p-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-gray-200 p-4 text-center">
+        <p>&copy; 2024 HTMX Ecommerce. All rights reserved.</p>
+    </footer>
+</body>
+</html>
