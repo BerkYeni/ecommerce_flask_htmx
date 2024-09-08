@@ -315,16 +315,18 @@ def wishlist():
 @app.route('/add_to_wishlist/<int:product_id>', methods=['POST'])
 def add_to_wishlist(product_id):
     if 'user_id' not in session:
-        return redirect(url_for('login'))
+        return 'Please log in to add items to your wishlist', 401
     
     conn = get_db_connection()
-    conn.execute('INSERT OR IGNORE INTO wishlist (user_id, product_id) VALUES (?, ?)',
+    result = conn.execute('INSERT OR IGNORE INTO wishlist (user_id, product_id) VALUES (?, ?)',
                  (session['user_id'], product_id))
     conn.commit()
     conn.close()
     
-    flash('Product added to your wishlist!', 'success')
-    return redirect(url_for('product_detail', product_id=product_id))
+    if result.rowcount > 0:
+        return '<p class="text-green-600">Product added to your wishlist!</p>'
+    else:
+        return '<p class="text-blue-600">Product is already in your wishlist.</p>'
 
 @app.route('/remove_from_wishlist/<int:product_id>', methods=['POST'])
 def remove_from_wishlist(product_id):
