@@ -156,19 +156,23 @@ def remove_from_cart(product_id):
 def register():
     if request.method == 'POST':
         username = request.form['username']
+        email = request.form['email']
         password = request.form['password']
         
         conn = get_db_connection()
-        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        user = conn.execute('SELECT * FROM users WHERE username = ? OR email = ?', (username, email)).fetchone()
         
         if user:
-            return 'Username already exists', 400
+            flash('Username or email already exists', 'error')
+            return redirect(url_for('register'))
         
-        conn.execute('INSERT INTO users (username, password) VALUES (?, ?)',
-                     (username, generate_password_hash(password)))
+        hashed_password = generate_password_hash(password)
+        conn.execute('INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+                     (username, email, hashed_password))
         conn.commit()
         conn.close()
         
+        flash('Registration successful. Please log in.', 'success')
         return redirect(url_for('login'))
     
     return render_template('register.html')
@@ -185,9 +189,10 @@ def login():
         
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
+            flash('Logged in successfully!', 'success')
             return redirect(url_for('index'))
         
-        return 'Invalid username or password', 401
+        flash('Invalid username or password', 'error')
     
     return render_template('login.html')
 

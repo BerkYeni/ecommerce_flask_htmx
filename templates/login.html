@@ -2,7 +2,7 @@
 
 {% block content %}
 <h1 class="text-3xl font-bold mb-4">Login</h1>
-<form hx-post="{{ url_for('login') }}" hx-target="#content" class="space-y-4">
+<form action="{{ url_for('login') }}" method="POST" class="space-y-4">
     <div>
         <label for="username" class="block">Username:</label>
         <input type="text" id="username" name="username" required class="w-full border rounded px-2 py-1">
