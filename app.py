@@ -150,7 +150,27 @@ def remove_from_cart(product_id):
     session['cart'] = cart
     session.modified = True
     
-    return redirect(url_for('view_cart'))
+    # Recalculate cart items and total
+    conn = get_db_connection()
+    cart_items = []
+    total = 0
+    
+    for product_id, quantity in cart.items():
+        product = conn.execute('SELECT * FROM products WHERE id = ?', (product_id,)).fetchone()
+        if product:
+            item_total = product['price'] * quantity
+            cart_items.append({
+                'id': product['id'],
+                'name': product['name'],
+                'price': product['price'],
+                'quantity': quantity,
+                'total': item_total
+            })
+            total += item_total
+    
+    conn.close()
+    
+    return render_template('cart_content.html', cart_items=cart_items, total=total)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
